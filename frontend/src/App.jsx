@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import Pedido from './pages/Pedido'
 import Cozinha from './pages/Cozinha'
 import CardapioAdmin from './pages/CardapioAdmin'
+import './index.css'
 
 function App() {
   return (
