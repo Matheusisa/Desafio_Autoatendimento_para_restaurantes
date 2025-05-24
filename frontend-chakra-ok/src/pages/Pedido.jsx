@@ -1,16 +1,18 @@
-import { useEffect, useState } from "react";
 import {
   Box,
-  Button,
-  Container,
   Heading,
-  Select,
   Text,
-  useToast,
   VStack,
-  Grid,
-  Image,
+  Button,
+  SimpleGrid,
+  useToast,
+  HStack,
 } from "@chakra-ui/react";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { motion } from "framer-motion";
+
+const MotionBox = motion(Box);
 
 export default function Pedido() {
   const [produtos, setProdutos] = useState([]);
@@ -18,150 +20,144 @@ export default function Pedido() {
   const toast = useToast();
 
   useEffect(() => {
-    fetch("http://localhost:3000/produtos")
-      .then((res) => res.json())
-      .then(setProdutos)
-      .catch(() => {
-        toast({
-          title: "Erro ao carregar produtos.",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
-      });
+    buscarProdutos();
   }, []);
 
-  const adicionarAoPedido = (produto) => {
+  const buscarProdutos = async () => {
+    try {
+      const res = await axios.get("http://localhost:3000/produtos");
+      setProdutos(res.data);
+    } catch (err) {
+      toast({
+        title: "Erro ao carregar produtos",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const adicionar = (produto) => {
     setPedido((prev) => {
-      const itemExistente = prev.find((item) => item.id === produto.id);
-      if (itemExistente) {
+      const existe = prev.find((item) => item.id === produto.id);
+      if (existe) {
         return prev.map((item) =>
-          item.id === produto.id ? { ...item, qtd: item.qtd + 1 } : item
+          item.id === produto.id ? { ...item, quantidade: item.quantidade + 1 } : item
         );
       } else {
-        return [...prev, { ...produto, qtd: 1 }];
+        return [...prev, { ...produto, quantidade: 1 }];
       }
     });
   };
 
-  const removerItem = (id) => {
+  const remover = (id) => {
     setPedido((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const enviarPedido = () => {
+  const enviarPedido = async () => {
     if (pedido.length === 0) {
       toast({
-        title: "Adicione itens antes de enviar.",
+        title: "Adicione itens ao pedido",
         status: "warning",
-        duration: 2500,
+        duration: 2000,
         isClosable: true,
       });
       return;
     }
 
-    fetch("http://localhost:3000/pedidos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itens: pedido, status: "Recebido" }),
-    })
-      .then((res) => res.json())
-      .then(() => {
-        toast({
-          title: "Pedido enviado com sucesso!",
-          status: "success",
-          duration: 2500,
-          isClosable: true,
-        });
-        setPedido([]);
-      })
-      .catch(() => {
-        toast({
-          title: "Erro ao enviar pedido.",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
+    try {
+      await axios.post("http://localhost:3000/pedidos", {
+        itens: pedido,
+        status: "Recebido",
       });
+      setPedido([]);
+      toast({
+        title: "Pedido enviado com sucesso!",
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (err) {
+      toast({
+        title: "Erro ao enviar pedido",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
   };
 
   return (
-    <Box bg="gray.50" minH="100vh" py={10}>
-      <Container maxW="container.md">
-        <Heading mb={6} textAlign="center" color="teal.600">
-          Monte seu pedido 🍔
-        </Heading>
+    <Box>
+      <Heading mb={4}>📋 Monte seu Pedido</Heading>
+      <Text mb={6}>Escolha seus produtos favoritos abaixo</Text>
 
-        <Grid templateColumns="repeat(auto-fill, minmax(160px, 1fr))" gap={5} mb={8}>
-          {produtos.map((p) => (
-            <Box
-              key={p.id}
-              p={4}
-              bg="white"
-              rounded="xl"
-              shadow="md"
-              textAlign="center"
-              _hover={{ shadow: "lg", transform: "scale(1.02)" }}
-              transition="0.2s"
+      <SimpleGrid columns={[1, 2, 3]} spacing={4} mb={8}>
+        {produtos.map((p) => (
+          <MotionBox
+            key={p.id}
+            p={4}
+            borderWidth="1px"
+            rounded="md"
+            shadow="sm"
+            bg="whiteAlpha.100"
+            textAlign="center"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Text fontSize="3xl">{p.emoji || "🍽️"}</Text>
+            <Text fontWeight="bold">{p.nome}</Text>
+            <Text color="gray.500">R$ {p.preco.toFixed(2)}</Text>
+            <Button
+              mt={2}
+              size="sm"
+              colorScheme="teal"
+              onClick={() => adicionar(p)}
             >
-              <Text fontSize="3xl">{p.imagem}</Text>
-              <Text fontWeight="bold">{p.nome}</Text>
-              <Text fontSize="sm" color="gray.600">
-                R$ {p.preco.toFixed(2)}
+              Adicionar
+            </Button>
+          </MotionBox>
+        ))}
+      </SimpleGrid>
+
+      <Heading size="md" mb={3}>🛒 Seu Pedido</Heading>
+
+      {pedido.length === 0 ? (
+        <Text color="gray.500">Nenhum item adicionado.</Text>
+      ) : (
+        <VStack align="stretch" spacing={3} mb={4}>
+          {pedido.map((item) => (
+            <HStack
+              key={item.id}
+              justify="space-between"
+              p={3}
+              bg="gray.100"
+              rounded="md"
+            >
+              <Text>
+                {item.quantidade}x {item.nome}
               </Text>
               <Button
-                mt={2}
-                size="sm"
-                colorScheme="teal"
-                onClick={() => adicionarAoPedido(p)}
+                size="xs"
+                colorScheme="red"
+                onClick={() => remover(item.id)}
               >
-                Adicionar
+                Remover
               </Button>
-            </Box>
+            </HStack>
           ))}
-        </Grid>
+        </VStack>
+      )}
 
-        <Heading size="md" mb={3}>
-          Seu Pedido
-        </Heading>
-
-        {pedido.length === 0 ? (
-          <Text color="gray.500">Nenhum item adicionado.</Text>
-        ) : (
-          <VStack align="stretch" spacing={3} mb={4}>
-            {pedido.map((item) => (
-              <Box
-                key={item.id}
-                bg="white"
-                p={3}
-                shadow="sm"
-                rounded="md"
-                display="flex"
-                justifyContent="space-between"
-              >
-                <Text>
-                  {item.nome} x{item.qtd}
-                </Text>
-                <Button
-                  size="xs"
-                  colorScheme="red"
-                  onClick={() => removerItem(item.id)}
-                >
-                  Remover
-                </Button>
-              </Box>
-            ))}
-          </VStack>
-        )}
-
-        <Button
-          colorScheme="green"
-          size="lg"
-          onClick={enviarPedido}
-          isDisabled={pedido.length === 0}
-        >
-          Enviar Pedido
-        </Button>
-      </Container>
+      <Button
+        colorScheme="green"
+        size="lg"
+        onClick={enviarPedido}
+        isDisabled={pedido.length === 0}
+      >
+        Enviar Pedido
+      </Button>
     </Box>
   );
 }

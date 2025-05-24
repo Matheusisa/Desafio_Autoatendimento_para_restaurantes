@@ -1,123 +1,123 @@
-import { useEffect, useState } from "react";
 import {
   Box,
-  Button,
-  Container,
   Heading,
   Text,
+  Button,
   VStack,
-  Badge,
-  Stack,
+  HStack,
   useToast,
 } from "@chakra-ui/react";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { motion } from "framer-motion";
+
+const MotionBox = motion(Box);
 
 export default function Cozinha() {
   const [pedidos, setPedidos] = useState([]);
   const toast = useToast();
 
-  const carregarPedidos = () => {
-    fetch("http://localhost:3000/pedidos")
-      .then((res) => res.json())
-      .then(setPedidos)
-      .catch(() =>
-        toast({
-          title: "Erro ao carregar pedidos.",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        })
-      );
-  };
-
   useEffect(() => {
-    carregarPedidos();
+    buscarPedidos();
   }, []);
 
-  const marcarComoPronto = (id) => {
-    fetch(`http://localhost:3000/pedidos/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "Pronto" }),
-    })
-      .then(() => {
-        toast({
-          title: "Pedido marcado como pronto.",
-          status: "success",
-          duration: 2000,
-          isClosable: true,
-        });
-        carregarPedidos();
-      })
-      .catch(() =>
-        toast({
-          title: "Erro ao atualizar pedido.",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        })
-      );
+  const buscarPedidos = async () => {
+    try {
+      const res = await axios.get("http://localhost:3000/pedidos");
+      setPedidos(res.data);
+    } catch (err) {
+      toast({
+        title: "Erro ao buscar pedidos",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const atualizarStatus = async (id, status) => {
+    try {
+      await axios.patch(`http://localhost:3000/pedidos/${id}`, { status });
+      buscarPedidos();
+      toast({
+        title: `Status atualizado para ${status}`,
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (err) {
+      toast({
+        title: "Erro ao atualizar status",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
   };
 
   return (
-    <Box bg="gray.50" minH="100vh" py={10}>
-      <Container maxW="container.lg">
-        <Heading mb={6} textAlign="center" color="orange.500">
-          Pedidos na Cozinha 🍳
-        </Heading>
+    <Box>
+      <Heading mb={4}>🍽️ Painel da Cozinha</Heading>
+      <Text mb={6}>Gerencie os pedidos em andamento</Text>
 
-        {pedidos.length === 0 ? (
-          <Text textAlign="center" color="gray.500">
-            Nenhum pedido disponível.
+      <VStack align="stretch" spacing={4}>
+        {pedidos.length === 0 && (
+          <Text color="gray.500" textAlign="center">
+            Nenhum pedido no momento.
           </Text>
-        ) : (
-          <VStack spacing={5} align="stretch">
-            {pedidos.map((pedido) => (
-              <Box
-                key={pedido.id}
-                bg="white"
-                shadow="md"
-                p={5}
-                rounded="md"
-                borderLeft="6px solid"
-                borderColor={pedido.status === "Pronto" ? "green.400" : "orange.400"}
-              >
-                <Stack justify="space-between" direction={["column", "row"]} align="start">
-                  <Box>
-                    <Text fontWeight="bold" fontSize="lg" mb={1}>
-                      Pedido #{pedido.id}
-                    </Text>
-                    <Badge
-                      colorScheme={pedido.status === "Pronto" ? "green" : "orange"}
-                      mb={2}
-                    >
-                      {pedido.status}
-                    </Badge>
-
-                    <VStack align="start" spacing={1}>
-                      {pedido.itens.map((item, index) => (
-                        <Text key={index}>
-                          {item.qtd}x {item.nome}
-                        </Text>
-                      ))}
-                    </VStack>
-                  </Box>
-
-                  {pedido.status !== "Pronto" && (
-                    <Button
-                      colorScheme="green"
-                      onClick={() => marcarComoPronto(pedido.id)}
-                      mt={[3, 0]}
-                      alignSelf={["center", "flex-end"]}
-                    >
-                      Marcar como pronto
-                    </Button>
-                  )}
-                </Stack>
-              </Box>
-            ))}
-          </VStack>
         )}
-      </Container>
+
+        {pedidos.map((pedido) => (
+          <MotionBox
+            key={pedido.id}
+            p={4}
+            borderWidth="1px"
+            rounded="md"
+            shadow="md"
+            bg="whiteAlpha.100"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <Heading size="sm" mb={2}>
+              Pedido #{pedido.id}
+            </Heading>
+            <VStack align="start" spacing={1}>
+              {pedido.itens.map((item, index) => (
+                <Text key={index}>
+                  {item.nome} x{item.quantidade}
+                </Text>
+              ))}
+            </VStack>
+
+            <Text mt={2}>
+              <strong>Status:</strong> {pedido.status}
+            </Text>
+
+            <HStack mt={3} spacing={2}>
+              {["Recebido", "Em preparo", "Pronto", "Entregue"].map((status) => (
+                <Button
+                  key={status}
+                  size="sm"
+                  onClick={() => atualizarStatus(pedido.id, status)}
+                  colorScheme={
+                    status === "Pronto"
+                      ? "green"
+                      : status === "Em preparo"
+                      ? "orange"
+                      : status === "Entregue"
+                      ? "blue"
+                      : "gray"
+                  }
+                  variant={pedido.status === status ? "solid" : "outline"}
+                >
+                  {status}
+                </Button>
+              ))}
+            </HStack>
+          </MotionBox>
+        ))}
+      </VStack>
     </Box>
   );
 }
